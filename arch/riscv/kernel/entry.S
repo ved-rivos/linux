@@ -49,23 +49,12 @@ SYM_CODE_START(handle_exception)
 	REG_S x5,  PT_T0(sp)
 	save_from_x6_to_x31
 
-	/*
-	 * Disable user-mode memory access as it should only be set in the
-	 * actual user copy routines.
-	 *
-	 * Disable the FPU/Vector to detect illegal usage of floating point
-	 * or vector in kernel space.
-	 */
-	li t0, SR_SUM | SR_FS_VS
-
 	REG_L s0, TASK_TI_USER_SP(tp)
-	csrrc s1, CSR_STATUS, t0
 	csrr s2, CSR_EPC
 	csrr s3, CSR_TVAL
 	csrr s4, CSR_CAUSE
 	csrr s5, CSR_SCRATCH
 	REG_S s0, PT_SP(sp)
-	REG_S s1, PT_STATUS(sp)
 	REG_S s2, PT_EPC(sp)
 	REG_S s3, PT_BADADDR(sp)
 	REG_S s4, PT_CAUSE(sp)
@@ -82,6 +71,21 @@ SYM_CODE_START(handle_exception)
 
 	/* Load the kernel shadow call stack pointer if coming from userspace */
 	scs_load_current_if_task_changed s5
+
+	/*
+	 * Disable user-mode memory access as it should only be set in the
+	 * actual user copy routines.
+	 *
+	 * Disable the FPU/Vector to detect illegal usage of floating point
+	 * or vector in kernel space.
+	 *
+	 * Clear SDT to disable double trap detection as all trap state is
+	 * saved.
+	 *
+	 */
+	li a0, SR_SUM | SR_FS_VS | SR_SDT
+	csrrc a0, CSR_STATUS, a0
+	REG_S a0, PT_STATUS(sp)
 
 #ifdef CONFIG_RISCV_ISA_V_PREEMPTIVE
 	move a0, sp

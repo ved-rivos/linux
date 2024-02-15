@@ -137,6 +137,15 @@ void kvm_riscv_vcpu_trap_redirect(struct kvm_vcpu *vcpu,
 {
 	unsigned long vsstatus = csr_read(CSR_VSSTATUS);
 
+	/* Detect double trap condition */
+        if ( vsstatus & SR_SDT ) {
+		kvm_riscv_vcpu_do_double_trap(vcpu)
+		ret;
+        }
+
+	/* Set SDT bit to enable double trap detection */
+	vsstatus |= SR_SDT;
+
 	/* Change Guest SSTATUS.SPP bit */
 	vsstatus &= ~SR_SPP;
 	if (vcpu->arch.guest_context.sstatus & SR_SPP)
@@ -203,6 +212,10 @@ int kvm_riscv_vcpu_exit(struct kvm_vcpu *vcpu, struct kvm_run *run,
 	case EXC_SUPERVISOR_SYSCALL:
 		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
 			ret = kvm_riscv_vcpu_sbi_ecall(vcpu, run);
+		break;
+	case EXC_DOUBLE_TRAP:
+		if (vcpu->arch.guest_context.hstatus & HSTATUS_SPV)
+			ret = kvm_riscv_vcpu_double_trap(vcpu, run);
 		break;
 	default:
 		break;
